@@ -32,41 +32,6 @@ struct Customer {
         }
     }
     
-    static func list( handler: @escaping (Result<[Customer],Error>) -> Void ) {
-        Customer.createZoneIfNecessary { (createZoneResult) in
-            Customer.internalList(retrievedCustomers: [Customer](), cursor: nil, handler: handler)
-        }
-    }
-    
-    // The caller must ensure that the zone exists. When this calls itself, it returns a non-empty array of retrievedCustomers and a cursor.
-    // External callers should pass an empty array of retrievedCustomers and a nil cursor. This will call the result handler when it has retrieved
-    // all Customer records or failed to do so.
-    private static func internalList( retrievedCustomers: [Customer], cursor: CKQueryOperation.Cursor?, handler: @escaping (Result<[Customer],Error>) -> Void ) {
-        var allCustomers = retrievedCustomers
-        
-        let fetchRecordsOperation = CKQueryOperation(query: CKQuery(recordType: Customer.recordType, predicate: NSPredicate(value: true)))
-        fetchRecordsOperation.cursor = cursor
-        fetchRecordsOperation.qualityOfService = .userInteractive
-        fetchRecordsOperation.recordFetchedBlock = { (record) in
-            let guid = record.recordID.recordName
-            let customerName = record[CloudKitAttributeKeys.customerName.rawValue] as? String
-            let contactName = record[CloudKitAttributeKeys.contactName.rawValue] as? String
-            let contactEmail = record[CloudKitAttributeKeys.contactEmail.rawValue] as? String
-            let customer = Customer(guid: guid, customerName: customerName, contactName: contactName, contactEmail: contactEmail)
-            allCustomers.append(customer)
-        }
-        fetchRecordsOperation.queryCompletionBlock = { (cursor, error) in
-            if let error = error {
-                handler(Result.failure(error))
-            } else if let cursor = cursor {
-                Customer.internalList(retrievedCustomers: allCustomers, cursor: cursor, handler: handler)
-            } else {
-                handler(Result.success(allCustomers))
-            }
-        }
-        Customer.cloudkitDatabase.add(fetchRecordsOperation)
-    }
-
     func save( handler: @escaping (Result<Void,Error>) -> Void ) {
         Customer.createZoneIfNecessary { (createZoneResult) in
             switch createZoneResult {
@@ -118,6 +83,42 @@ struct Customer {
     }
     
     
+    static func list( handler: @escaping (Result<[Customer],Error>) -> Void ) {
+        Customer.createZoneIfNecessary { (createZoneResult) in
+            Customer.internalList(retrievedCustomers: [Customer](), cursor: nil, handler: handler)
+        }
+    }
+    
+    // The caller must ensure that the zone exists. When this calls itself, it returns a non-empty array of retrievedCustomers and a cursor.
+    // External callers should pass an empty array of retrievedCustomers and a nil cursor. This will call the result handler when it has retrieved
+    // all Customer records or failed to do so.
+    private static func internalList( retrievedCustomers: [Customer], cursor: CKQueryOperation.Cursor?, handler: @escaping (Result<[Customer],Error>) -> Void ) {
+        
+        var allCustomers = retrievedCustomers
+        
+        let fetchRecordsOperation = CKQueryOperation(query: CKQuery(recordType: Customer.recordType, predicate: NSPredicate(value: true)))
+        fetchRecordsOperation.cursor = cursor
+        fetchRecordsOperation.qualityOfService = .userInteractive
+        fetchRecordsOperation.recordFetchedBlock = { (record) in
+            let guid = record.recordID.recordName
+            let customerName = record[CloudKitAttributeKeys.customerName.rawValue] as? String
+            let contactName = record[CloudKitAttributeKeys.contactName.rawValue] as? String
+            let contactEmail = record[CloudKitAttributeKeys.contactEmail.rawValue] as? String
+            let customer = Customer(guid: guid, customerName: customerName, contactName: contactName, contactEmail: contactEmail)
+            allCustomers.append(customer)
+        }
+        fetchRecordsOperation.queryCompletionBlock = { (cursor, error) in
+            if let error = error {
+                handler(Result.failure(error))
+            } else if let cursor = cursor {
+                Customer.internalList(retrievedCustomers: allCustomers, cursor: cursor, handler: handler)
+            } else {
+                handler(Result.success(allCustomers))
+            }
+        }
+        Customer.cloudkitDatabase.add(fetchRecordsOperation)
+    }
+
     
     // MARK: Zone Management
     
